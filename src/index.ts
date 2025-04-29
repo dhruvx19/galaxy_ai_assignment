@@ -7,28 +7,45 @@ import router from "./routes/routes";
 import groqRouter from "./routes/groq_router";
 import { connectDB } from "./db"; 
 
-const app: Express = express()
-const server = http.createServer(app)
+// Load environment variables first
+dotenv.config();
 
-app.use(cors());
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }));
+const app: Express = express();
+const server = http.createServer(app);
+
+// Configure CORS with more specific options
+app.use(cors({
+  origin: '*', // Allow all origins - in production you might want to restrict this
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight request results for 24 hours (in seconds)
+}));
+
+// Body parser middleware
+app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for larger payloads
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+
+// Port configuration - use the PORT env variable
 const PORT = process.env.PORT || 3000;
-app.set("BASE_URL", "localhost")
 
-dotenv.config()
-connectDB();
+// Routes
 app.use("/api/v1", router);
+// Uncomment if you need to use groqRouter
+// app.use("/api/v1/groq", groqRouter);
 
+// Health check endpoint - useful for Railway to verify your app is running
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
+// Start server
 try {
-    const port = app.get("PORT")
-    server.listen(port, (): void => {
-        console.log("server is listening")
-    })
-}
-catch (error) {
-       console.log(error)
+  server.listen(PORT, (): void => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+} catch (error) {
+  console.log("Server error:", error);
 }
 
-export default server
+export default server;
