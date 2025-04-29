@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import bodyParser from 'body-parser';
 import router from "./routes/routes";
 import groqRouter from "./routes/groq_router";
+import uploadRouter from "./routes/upload_router";
 import { connectDB } from "./db"; 
 
 // Load environment variables first
@@ -33,6 +34,7 @@ const PORT = process.env.PORT || 3000;
 app.use("/api/v1", router);
 // Uncomment if you need to use groqRouter
 // app.use("/api/v1/groq", groqRouter);
+app.use("/", uploadRouter); // Add upload router
 
 // Health check endpoint - useful for Railway to verify your app is running
 app.get('/health', (req, res) => {
