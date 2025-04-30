@@ -187,12 +187,12 @@ export const getChatHistoryController = async (
     // Get all chat sessions for the user
     const chatSessions = await ChatHistory.find(
       { userId },
-      { sessionId: 1, title: 1, createdAt: 1, updatedAt: 1 }
+      { sessionId: 1, createdAt: 1, updatedAt: 1 }
     ).sort({ updatedAt: -1 });
 
     res.json({ sessions: chatSessions });
   } catch (error) {
-    console.error('Error fetching chat history:', error);
+    console.log(error);
     res.status(500).json({ error: "An error occurred while retrieving chat history" });
   }
 };
@@ -220,7 +220,7 @@ export const getChatSessionController = async (
 
     res.json(chatSession);
   } catch (error) {
-    console.error('Error retrieving chat session:', error);
+    console.log(error);
     res.status(500).json({ error: "An error occurred while retrieving the chat session" });
   }
 };

@@ -11,6 +11,9 @@ import { connectDB } from "./db";
 // Load environment variables first
 dotenv.config();
 
+// Establish MongoDB connection before setting up the rest of the server
+connectDB();
+
 const app: Express = express();
 const server = http.createServer(app);
 
