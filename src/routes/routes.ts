@@ -1,10 +1,28 @@
-import { Router } from "express";
-import helloRouter from "./hello_router";
-import groqRouter from "./groq_router";
+import { Router } from 'express';
+import multer from 'multer';
+import { 
+  generateGroqResponsesController, 
+  getChatHistoryController,
+  getChatSessionController 
+} from '../controllers/generate_response';
+import { uploadImageController } from '../controllers/upload_image';
 
+// Create a router
 const router = Router();
 
-router.use("/hello", helloRouter);
-router.use("/generate_response", groqRouter);
+// Set up multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Image upload route
+router.post('/upload', upload.single('image'), uploadImageController);
+
+// Chat routes
+router.post('/generate_response', upload.single('image'), generateGroqResponsesController);
+router.get('/history/:userId', getChatHistoryController);
+router.get('/history/:userId/:sessionId', getChatSessionController);
 
 export default router;
