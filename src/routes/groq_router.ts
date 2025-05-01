@@ -8,9 +8,6 @@ import {
 const groqRouter = Router();
 
 
-// Groq routes
 groqRouter.post("/", uploadMiddleware, generateGroqResponsesController);
 
-
-// For backward compatibility, export the groqRouter as default
 export default groqRouter;

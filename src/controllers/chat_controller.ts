@@ -1,26 +1,21 @@
-// controllers/chat_controller.ts
 import { Request, Response } from "express";
 import { Groq } from "groq-sdk";
 import { uploadImage } from '../services/cloudnaryServices';
 import multer from "multer";
 import Chat, { IChat } from '../models/chat'
 
-// Configure multer for file uploads
+
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Middleware to handle file uploads
 export const uploadMiddleware = upload.single('image');
 
-// Default test user ID
 const DEFAULT_TEST_USER = "test-user-123";
 
-/**
- * Controller to create a new empty chat session
- */
+
 export const createNewChatController = async (
   req: Request,
   res: Response
@@ -29,10 +24,8 @@ export const createNewChatController = async (
     const { title = "New Chat", model = "llama3-70b-8192" } = req.body;
     const userId = req.body.userId || DEFAULT_TEST_USER;
     
-    // Generate a new session ID
     const sessionId = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     
-    // Create a new chat document
     const newChat = new Chat({
       sessionId,
       userId,
@@ -62,9 +55,6 @@ export const createNewChatController = async (
   }
 };
 
-/**
- * Controller to generate responses from Groq API and store the chat in MongoDB
- */
 export const generateGroqResponsesController = async (
   req: Request,
   res: Response
@@ -78,18 +68,14 @@ export const generateGroqResponsesController = async (
       title = "New Chat"
     } = req.body;
 
-    // Validate required fields
     if (!messages || !Array.isArray(messages)) {
       res.status(400).json({ error: "Messages are required and must be an array" });
       return;
     }
-    
-    // Generate a new sessionId if not provided
     if (!sessionId) {
       sessionId = Date.now().toString(); // simple sessionId using timestamp
     }
     
-    // Validate the model
     const validModels = [
       "llama3-70b-8192",
       "llama3-8b-8192",
@@ -105,12 +91,10 @@ export const generateGroqResponsesController = async (
       return;
     }
 
-    // Handle image upload if present in the request
     if (req.file) {
       try {
         const imageUrl = await uploadImage(req.file.buffer);
         
-        // Add imageUrl to the last user message if it exists
         if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
           messages[messages.length - 1].imageUrl = imageUrl;
         }
@@ -121,20 +105,17 @@ export const generateGroqResponsesController = async (
       }
     }
 
-    // Initialize Groq client
+  
     const groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     });
 
-    // Prepare messages for Groq API
     const apiMessages = messages.map(msg => {
-      // Basic message object for Groq
       const apiMessage: any = {
         role: msg.role,
         content: msg.content
       };
       
-      // If there's an image URL, append a description to the content
       if (msg.imageUrl) {
         apiMessage.content += `\n\n[This message contains an image: ${msg.imageUrl}]`;
       }
@@ -142,7 +123,6 @@ export const generateGroqResponsesController = async (
       return apiMessage;
     });
 
-    // Create parameters for the API call
     const apiParams = {
       model,
       messages: apiMessages,
@@ -154,18 +134,15 @@ export const generateGroqResponsesController = async (
       stream: true,
     };
 
-    // Set the response headers for streaming
     res.set({
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       "Connection": "keep-alive",
     });
 
-    // Initialize variable to collect the full response
     let fullAssistantResponse = '';
 
     try {
-      // Call Groq API and stream the response
       const stream = await groq.chat.completions.create(apiParams) as unknown as AsyncIterable<{
         choices: Array<{ 
           delta: { 
@@ -174,7 +151,6 @@ export const generateGroqResponsesController = async (
         }>
       }>;
 
-      // Process the stream chunks
       for await (const chunk of stream) {
         const data = chunk.choices[0].delta.content || "";
         fullAssistantResponse += data;
@@ -182,7 +158,6 @@ export const generateGroqResponsesController = async (
         res.write(formattedData);
       }
 
-      // Add the assistant's response to the messages array
       const assistantMessage = {
         role: 'assistant',
         content: fullAssistantResponse,
@@ -190,7 +165,6 @@ export const generateGroqResponsesController = async (
       };
       messages.push(assistantMessage);
 
-      // Add timestamps to messages if they don't have them
       const messagesWithTimestamps = messages.map(msg => {
         if (!msg.timestamp) {
           return { ...msg, timestamp: new Date() };
@@ -198,7 +172,6 @@ export const generateGroqResponsesController = async (
         return msg;
       });
 
-      // Save or update the chat in MongoDB
       try {
         await Chat.findOneAndUpdate(
           { sessionId, userId },
@@ -210,14 +183,12 @@ export const generateGroqResponsesController = async (
             model,
             updatedAt: new Date()
           },
-          { upsert: true, new: true } // Create if not exists, return updated document
+          { upsert: true, new: true } 
         );
       } catch (dbError) {
         console.error('Error saving chat to database:', dbError);
-        // Continue serving the response even if DB save fails
       }
 
-      // End the response
       res.end();
     } catch (error) {
       console.error('Error streaming from Groq:', error);
@@ -230,11 +201,6 @@ export const generateGroqResponsesController = async (
   }
 };
 
-/**
- * Controller to retrieve all chats for a user, organized by date
- */
-
-
 export const getUserChatsController = async (
   req: Request,
   res: Response
@@ -242,7 +208,6 @@ export const getUserChatsController = async (
   try {
     const userId = req.params.userId || DEFAULT_TEST_USER;
 
-    // Return plain JS objects with correct typing
     const chats: IChat[] = await Chat.find({ userId })
       .sort({ updatedAt: -1 })
       .select('sessionId title model createdAt updatedAt')
@@ -302,9 +267,6 @@ export const getUserChatsController = async (
 };
 
 
-/**
- * Controller to retrieve a specific chat by sessionId and userId
- */
 export const getChatByIdController = async (
   req: Request, 
   res: Response
@@ -318,7 +280,6 @@ export const getChatByIdController = async (
       return;
     }
     
-    // Find the specific chat
     const chat = await Chat.findOne({ sessionId, userId });
     
     if (!chat) {
@@ -333,24 +294,19 @@ export const getChatByIdController = async (
   }
 };
 
-/**
- * Controller to handle image uploads
- */
+
 export const uploadImageController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Check if a file was uploaded
     if (!req.file) {
       res.status(400).json({ error: 'No image file provided' });
       return;
     }
 
-    // Upload the image to Cloudinary
     const imageUrl = await uploadImage(req.file.buffer);
 
-    // Return the URL of the uploaded image
     res.status(200).json({ imageUrl });
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -358,9 +314,6 @@ export const uploadImageController = async (
   }
 };
 
-/**
- * Controller to update chat title
- */
 export const updateChatTitleController = async (
   req: Request,
   res: Response
@@ -380,7 +333,6 @@ export const updateChatTitleController = async (
       return;
     }
     
-    // Find and update the chat
     const updatedChat = await Chat.findOneAndUpdate(
       { sessionId, userId },
       { title, updatedAt: new Date() },
@@ -399,9 +351,7 @@ export const updateChatTitleController = async (
   }
 };
 
-/**
- * Controller to delete a chat
- */
+
 export const deleteChatController = async (
   req: Request,
   res: Response
@@ -430,9 +380,7 @@ export const deleteChatController = async (
   }
 };
 
-/**
- * Controller to retrieve the latest messages for a user
- */
+
 export const getLatestMessagesController = async (
   req: Request,
   res: Response
@@ -441,12 +389,10 @@ export const getLatestMessagesController = async (
     const userId = req.params.userId || DEFAULT_TEST_USER;
     const limit = parseInt(req.query.limit as string) || 5;
     
-    // Find latest chats
     const latestChats = await Chat.find({ userId })
       .sort({ updatedAt: -1 })
       .limit(limit);
     
-    // Extract the latest message from each chat
     const latestMessages = latestChats.map(chat => {
       const lastMessage = chat.messages[chat.messages.length - 1];
       return {

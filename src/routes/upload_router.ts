@@ -12,7 +12,6 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       return;
     }
 
-    // Upload to Cloudinary
     const imageUrl = await uploadImage(req.file.buffer);
 
     res.json({ imageUrl });
