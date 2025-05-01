@@ -2,7 +2,6 @@
 
 import { Request, Response } from "express";
 import { Groq } from "groq-sdk";
-import ChatHistory from '../models/chatHistory';
 import { uploadImage } from '../services/cloudnaryServices';
 import multer from "multer";
 
@@ -146,18 +145,7 @@ export const generateGroqResponsesController = async (
       messages.push(assistantMessage);
 
       // Save or update the chat history in MongoDB
-      await ChatHistory.findOneAndUpdate(
-        { userId, sessionId },
-        { 
-          userId, 
-          sessionId, 
-          messages, 
-          modelName: model,
-          ...(title && { title }) // Only add title if it exists
-        },
-        { upsert: true, new: true }
-      );
-
+      
       // End the response
       res.end();
     } catch (error) {
@@ -171,56 +159,5 @@ export const generateGroqResponsesController = async (
   }
 };
 
-// Controller to get chat history for a user
-export const getChatHistoryController = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { userId } = req.params;
-    
-    if (!userId) {
-      res.status(400).json({ error: "userId is required" });
-      return;
-    }
 
-    // Get all chat sessions for the user
-    const chatSessions = await ChatHistory.find(
-      { userId },
-      { sessionId: 1, createdAt: 1, updatedAt: 1 }
-    ).sort({ updatedAt: -1 });
 
-    res.json({ sessions: chatSessions });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "An error occurred while retrieving chat history" });
-  }
-};
-
-// Controller to get a specific chat session
-export const getChatSessionController = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { userId, sessionId } = req.params;
-    
-    if (!userId || !sessionId) {
-      res.status(400).json({ error: "userId and sessionId are required" });
-      return;
-    }
-
-    // Get the chat session
-    const chatSession = await ChatHistory.findOne({ userId, sessionId });
-    
-    if (!chatSession) {
-      res.status(404).json({ error: "Chat session not found" });
-      return;
-    }
-
-    res.json(chatSession);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "An error occurred while retrieving the chat session" });
-  }
-};
